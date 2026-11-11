@@ -17,6 +17,7 @@ import type {
   Trace,
 } from '../api/types';
 import { AGENT_META } from '../lib/agents';
+import { isDueSoon } from '../lib/deadlines';
 import { defaultQueryFromSkills } from '../lib/roles';
 import { STEPS, type Step } from '../lib/steps';
 import { cn } from '../utils/cn';
@@ -425,11 +426,26 @@ export function Workspace({ onExit }: { onExit: () => void }) {
       }
       setApproving(true);
       try {
-        const edited =
+        const draftsChanged =
           draft.cover_note !== approvalTarget.cover_note ||
           draft.resume_draft !== approvalTarget.resume_draft;
+        const deadlineChanged =
+          draft.deadline !== undefined && draft.deadline !== (approvalTarget.deadline ?? null);
         let current = approvalTarget;
-        if (edited) {
+
+        // A deadline-only edit on an approved application keeps the approval, so
+        // there is nothing to re-approve — save and stop.
+        if (approvalTarget.status === 'APPROVED' && !draftsChanged) {
+          if (deadlineChanged) {
+            current = await api.updateApplication(approvalTarget.id, draft);
+            notify('success', 'Deadline updated. Approval kept.');
+            await Promise.all([refreshApplications(), refreshDashboard()]);
+          }
+          setApprovalTarget(null);
+          return true;
+        }
+
+        if (draftsChanged || deadlineChanged) {
           current = await api.updateApplication(approvalTarget.id, draft);
           setApprovalTarget(current);
         }
@@ -672,6 +688,10 @@ export function Workspace({ onExit }: { onExit: () => void }) {
   const pendingApprovals = applications.filter(
     (application) => application.status === 'PENDING_APPROVAL',
   ).length;
+  const dueSoonCount = useMemo(
+    () => applications.filter((application) => isDueSoon(application.deadline)).length,
+    [applications],
+  );
   const selectedApplication = useMemo<Application | null>(
     () =>
       selectedJob
@@ -878,6 +898,10 @@ export function Workspace({ onExit }: { onExit: () => void }) {
               <Stat label="Approved" value={dashboard.approved} />
               <Stat label="Interviews" value={dashboard.interviews} />
             </dl>
+            <div className="mt-3 flex items-center justify-between rounded-[3px] border border-line bg-card px-3 py-2 text-[13px]">
+              <dt className="text-inksoft">Deadlines ≤ 7d</dt>
+              <dd className="font-mono font-semibold">{dueSoonCount}</dd>
+            </div>
             <Mono className="mt-5 block text-inksoft">Session status</Mono>
             <dl className="mt-3 space-y-2 text-[13px]">
               <div className="flex justify-between">

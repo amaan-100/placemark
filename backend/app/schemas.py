@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -110,6 +110,7 @@ class ApplicationOut(BaseModel):
 class ApplicationUpdateRequest(BaseModel):
     resume_draft: str | None = Field(default=None, max_length=20_000)
     cover_note: str | None = Field(default=None, max_length=8_000)
+    deadline: str | None = Field(default=None, max_length=64)
 
     @field_validator("resume_draft", "cover_note")
     @classmethod
@@ -121,10 +122,31 @@ class ApplicationUpdateRequest(BaseModel):
             raise ValueError("Draft text cannot be empty.")
         return cleaned
 
+    @field_validator("deadline")
+    @classmethod
+    def clean_deadline(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        try:
+            return date.fromisoformat(cleaned).isoformat()
+        except ValueError:
+            pass
+        try:
+            return datetime.fromisoformat(cleaned).date().isoformat()
+        except ValueError as exc:
+            raise ValueError(
+                "Deadline must be an ISO date (YYYY-MM-DD) or an ISO datetime string."
+            ) from exc
+
     @model_validator(mode="after")
     def require_draft_field(self) -> "ApplicationUpdateRequest":
+        if "deadline" in self.model_fields_set:
+            return self
         if self.resume_draft is None and self.cover_note is None:
-            raise ValueError("Provide at least one draft field.")
+            raise ValueError("Provide at least one field to update.")
         return self
 
 

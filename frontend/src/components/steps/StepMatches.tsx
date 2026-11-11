@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Check, ExternalLink, Loader2, MapPin, Search } from 'lucide-react';
 import type { Job } from '../../api/types';
-import { formatDate, sourceLabel } from '../../utils';
+import { sourceLabel } from '../../utils';
+import { deadlineState } from '../../lib/deadlines';
 import { cn } from '../../utils/cn';
 import { StepHeader } from '../StepHeader';
 import { Btn, Chip, EASE, EmptyState, Mono, ScoreBar, Skeleton } from '../ui';
@@ -187,7 +188,7 @@ export function StepMatches({
           <ol className="mt-4 space-y-3">
             {ranked.map((job, index) => {
               const isSelected = selected?.id === job.id;
-              const deadline = job.deadline ? formatDate(job.deadline) : null;
+              const deadline = job.deadline ? deadlineState(job.deadline) : null;
               return (
                 <motion.li
                   key={job.id}
@@ -224,7 +225,7 @@ export function StepMatches({
                           {job.location ? <span aria-hidden="true">·</span> : null}
                           {job.location ? <span>{job.location}</span> : null}
                           {deadline ? <span aria-hidden="true">·</span> : null}
-                          {deadline ? <span>Apply by {deadline}</span> : null}
+                          {deadline ? <span>{deadline.label}</span> : null}
                         </p>
                       </div>
                       <div className="text-right">

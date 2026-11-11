@@ -32,6 +32,7 @@ export function ApprovalDialog({
   const open = application !== null;
   const [coverNote, setCoverNote] = useState('');
   const [resumeDraft, setResumeDraft] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [checked, setChecked] = useState(false);
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function ApprovalDialog({
     }
     setCoverNote(application.cover_note);
     setResumeDraft(application.resume_draft);
+    setDeadline(application.deadline ?? '');
     setChecked(false);
     setTyped('');
     setError(null);
@@ -95,9 +97,25 @@ export function ApprovalDialog({
 
   const isApproved = application.status === 'APPROVED';
   const busy = saving || approving;
-  const dirty =
+  const savedDeadline = application.deadline ?? '';
+  const draftsDirty =
     coverNote !== application.cover_note || resumeDraft !== application.resume_draft;
+  const deadlineDirty = deadline !== savedDeadline;
+  const dirty = draftsDirty || deadlineDirty;
   const ready = checked && typed.trim().toLowerCase() === 'approve';
+  // A deadline-only edit on an approved draft records no approval decision, so it
+  // does not need the typed confirmation.
+  const needsConfirmation = !(isApproved && !draftsDirty && deadlineDirty);
+
+  const confirmLabel = isApproved
+    ? draftsDirty
+      ? 'Save & re-approve'
+      : deadlineDirty
+        ? 'Save deadline'
+        : 'Approved'
+    : draftsDirty || deadlineDirty
+      ? 'Save & approve'
+      : 'Approve & record decision';
 
   const values = (): DraftValues | null => {
     const cleanCover = coverNote.trim();
@@ -109,28 +127,41 @@ export function ApprovalDialog({
     return { cover_note: cleanCover, resume_draft: cleanResume };
   };
 
-  const handleSave = async () => {
+  const buildUpdate = (): ApplicationUpdate | null => {
     const draft = values();
     if (!draft) {
+      return null;
+    }
+    const update: ApplicationUpdate = { ...draft };
+    if (deadline !== savedDeadline) {
+      update.deadline = deadline.trim() === '' ? null : deadline;
+    }
+    return update;
+  };
+
+  const handleSave = async () => {
+    const update = buildUpdate();
+    if (!update) {
       return;
     }
     setError(null);
-    const updated = await onSave(draft);
+    const updated = await onSave(update);
     if (!updated) {
       setError('The draft could not be saved. Check the connection and try again.');
       return;
     }
     setCoverNote(updated.cover_note);
     setResumeDraft(updated.resume_draft);
+    setDeadline(updated.deadline ?? '');
   };
 
   const handleConfirm = async () => {
-    const draft = values();
-    if (!draft) {
+    const update = buildUpdate();
+    if (!update) {
       return;
     }
     setError(null);
-    const confirmed = await onConfirm(draft);
+    const confirmed = await onConfirm(update);
     if (!confirmed) {
       setError('The draft could not be approved. Check the connection and try again.');
     }
@@ -218,10 +249,44 @@ export function ApprovalDialog({
 
               {isApproved ? (
                 <p className="mt-4 rounded-[4px] border border-amber/40 bg-amberbg px-4 py-3 text-[13px] leading-relaxed text-amber">
-                  This draft is already approved. Editing it will reset it to pending approval, and
-                  you will need to approve the edited text again.
+                  This draft is already approved. Changing the deadline keeps your approval.
+                  Editing the cover note or resume draft resets it to pending, and you will need to
+                  approve the edited text again.
                 </p>
               ) : null}
+
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label htmlFor="approval-deadline" className="text-sm font-medium">
+                    Application deadline
+                  </label>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <input
+                      id="approval-deadline"
+                      type="date"
+                      value={deadline}
+                      onChange={(event) => setDeadline(event.target.value)}
+                      disabled={busy}
+                      className="min-h-[44px] rounded-[3px] border border-linedark bg-paper px-3 font-mono text-sm focus:border-accent"
+                    />
+                    {deadline ? (
+                      <button
+                        type="button"
+                        onClick={() => setDeadline('')}
+                        disabled={busy}
+                        className="flex min-h-[44px] items-center rounded-[3px] px-3 text-xs font-medium text-inksoft hover:text-ink"
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="mt-1.5 text-xs text-inksoft">
+                    {deadline
+                      ? `Reminder will show as ${deadline}.`
+                      : 'Not set. Live listings often omit a deadline — add one to track it.'}
+                  </p>
+                </div>
+              </div>
 
               <div className="mt-5 space-y-4">
                 <div>
@@ -301,7 +366,13 @@ export function ApprovalDialog({
 
             <div className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-line bg-card px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
               <p className="font-mono text-[11px] uppercase tracking-wider text-inksoft">
-                {ready ? 'Ready — approval records only' : 'Both checks required'}
+                {!dirty
+                  ? 'No changes yet'
+                  : needsConfirmation
+                    ? ready
+                      ? 'Ready — approval records only'
+                      : 'Both checks required'
+                    : 'Deadline only — approval kept'}
               </p>
               <div className="flex flex-col-reverse gap-3 sm:flex-row">
                 <Btn variant="ghost" onClick={onClose} disabled={busy}>
@@ -312,18 +383,12 @@ export function ApprovalDialog({
                 </Btn>
                 <Btn
                   onClick={handleConfirm}
-                  disabled={!ready || busy || (isApproved && !dirty)}
+                  disabled={!dirty || busy || (needsConfirmation && !ready)}
                 >
                   {approving ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : null}
-                  {isApproved && !dirty
-                    ? 'Approved'
-                    : isApproved
-                      ? 'Save & re-approve'
-                      : dirty
-                        ? 'Save & approve'
-                        : 'Approve & record decision'}
+                  {confirmLabel}
                 </Btn>
               </div>
             </div>

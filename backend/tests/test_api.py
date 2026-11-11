@@ -342,3 +342,128 @@ def test_application_can_be_deleted(client, headers, sample_pdf):
     assert dashboard.json()["applications"] == 0
     assert dashboard.json()["pending_approvals"] == 0
     assert dashboard.json()["approved"] == 0
+
+
+def test_deadline_can_be_set_on_pending_application(client, headers, sample_pdf):
+    drafted = _create_draft(client, headers, sample_pdf)
+    application_id = drafted["application_id"]
+
+    edited = client.patch(
+        f"/api/applications/{application_id}",
+        headers=headers,
+        json={"deadline": "2026-11-15"},
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["deadline"] == "2026-11-15"
+    assert edited.json()["status"] == "PENDING_APPROVAL"
+
+    listed = client.get("/api/applications", headers=headers)
+    assert listed.status_code == 200
+    assert listed.json()["applications"][0]["deadline"] == "2026-11-15"
+
+
+def test_deadline_accepts_iso_datetime_and_normalizes(client, headers, sample_pdf):
+    drafted = _create_draft(client, headers, sample_pdf)
+    application_id = drafted["application_id"]
+
+    edited = client.patch(
+        f"/api/applications/{application_id}",
+        headers=headers,
+        json={"deadline": "2026-11-15T00:00:00Z"},
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["deadline"] == "2026-11-15"
+
+
+def test_deadline_only_edit_keeps_approved_status(client, headers, sample_pdf):
+    drafted = _create_draft(client, headers, sample_pdf)
+    application_id = drafted["application_id"]
+
+    approved = client.post(
+        f"/api/applications/{application_id}/approve",
+        headers=headers,
+    )
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "APPROVED"
+
+    edited = client.patch(
+        f"/api/applications/{application_id}",
+        headers=headers,
+        json={"deadline": "2026-12-01"},
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["deadline"] == "2026-12-01"
+    assert edited.json()["status"] == "APPROVED"
+
+
+def test_cover_note_edit_on_approved_resets_status(client, headers, sample_pdf):
+    drafted = _create_draft(client, headers, sample_pdf)
+    application_id = drafted["application_id"]
+
+    approved = client.post(
+        f"/api/applications/{application_id}/approve",
+        headers=headers,
+    )
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "APPROVED"
+
+    edited = client.patch(
+        f"/api/applications/{application_id}",
+        headers=headers,
+        json={"cover_note": "Rewritten cover note after approval."},
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["status"] == "PENDING_APPROVAL"
+    assert edited.json()["cover_note"] == "Rewritten cover note after approval."
+
+
+def test_invalid_deadline_is_rejected(client, headers, sample_pdf):
+    drafted = _create_draft(client, headers, sample_pdf)
+    application_id = drafted["application_id"]
+
+    invalid = client.patch(
+        f"/api/applications/{application_id}",
+        headers=headers,
+        json={"deadline": "not-a-date"},
+    )
+    assert invalid.status_code == 422, invalid.text
+    assert invalid.json()["error"]["code"] == "validation_error"
+
+
+def test_deadline_can_be_cleared_with_explicit_null(client, headers, sample_pdf):
+    drafted = _create_draft(client, headers, sample_pdf)
+    application_id = drafted["application_id"]
+
+    set_deadline = client.patch(
+        f"/api/applications/{application_id}",
+        headers=headers,
+        json={"deadline": "2026-12-31"},
+    )
+    assert set_deadline.status_code == 200, set_deadline.text
+    assert set_deadline.json()["deadline"] == "2026-12-31"
+
+    cleared = client.patch(
+        f"/api/applications/{application_id}",
+        headers=headers,
+        json={"deadline": None},
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["deadline"] is None
+
+    listed = client.get("/api/applications", headers=headers)
+    assert listed.status_code == 200
+    assert listed.json()["applications"][0]["deadline"] is None
+
+
+def test_deadline_only_patch_is_not_a_missing_field_error(client, headers, sample_pdf):
+    drafted = _create_draft(client, headers, sample_pdf)
+    application_id = drafted["application_id"]
+
+    edited = client.patch(
+        f"/api/applications/{application_id}",
+        headers=headers,
+        json={"deadline": "2026-10-01"},
+    )
+    assert edited.status_code == 200, edited.text
+    assert "provide at least one" not in edited.text.lower()
+    assert edited.json()["deadline"] == "2026-10-01"

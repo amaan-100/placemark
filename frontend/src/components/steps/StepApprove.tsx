@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { Application, Job } from '../../api/types';
 import { formatDate, statusLabel } from '../../utils';
+import { daysUntil, deadlineState } from '../../lib/deadlines';
 import { cn } from '../../utils/cn';
 import { StepHeader } from '../StepHeader';
 import { Btn, Chip, EmptyState, Mono, Skeleton } from '../ui';
@@ -21,6 +22,16 @@ function statusTone(status: string): 'moss' | 'amber' | 'default' {
     return 'moss';
   }
   if (status === 'PENDING_APPROVAL') {
+    return 'amber';
+  }
+  return 'default';
+}
+
+function deadlineTone(kind: string): 'err' | 'amber' | 'default' {
+  if (kind === 'overdue') {
+    return 'err';
+  }
+  if (kind === 'today' || kind === 'soon') {
     return 'amber';
   }
   return 'default';
@@ -79,6 +90,20 @@ export function StepApprove({
         const byStatus = rank(a.status) - rank(b.status);
         if (byStatus !== 0) {
           return byStatus;
+        }
+        // Pending drafts surface the soonest deadline first; undated last.
+        if (a.status === 'PENDING_APPROVAL') {
+          const aDays = daysUntil(a.deadline);
+          const bDays = daysUntil(b.deadline);
+          if (aDays !== null && bDays !== null && aDays !== bDays) {
+            return aDays - bDays;
+          }
+          if (aDays === null && bDays !== null) {
+            return 1;
+          }
+          if (aDays !== null && bDays === null) {
+            return -1;
+          }
         }
         return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       }),
@@ -284,6 +309,7 @@ export function StepApprove({
           <ul className="mt-4 divide-y divide-line border-y border-line">
             {queue.map((item) => {
               const isCurrent = application?.id === item.id;
+              const deadline = deadlineState(item.deadline);
               return (
                 <li
                   key={item.id}
@@ -296,9 +322,13 @@ export function StepApprove({
                     <p className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-sm font-semibold">{item.title}</span>
                       <Chip tone={statusTone(item.status)}>{statusLabel(item.status)}</Chip>
+                      {deadline.kind !== 'none' ? (
+                        <Chip tone={deadlineTone(deadline.kind)}>{deadline.label}</Chip>
+                      ) : null}
                     </p>
                     <p className="mt-0.5 text-xs text-inksoft">
                       {item.company} · updated {formatDate(item.updated_at)}
+                      {deadline.kind === 'none' ? ' · No deadline noted' : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

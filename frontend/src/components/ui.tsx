@@ -81,13 +81,14 @@ export function Chip({
   tone = 'default',
 }: {
   children: ReactNode;
-  tone?: 'default' | 'accent' | 'moss' | 'amber';
+  tone?: 'default' | 'accent' | 'moss' | 'amber' | 'err';
 }) {
   const tones = {
     default: 'border-line bg-card text-ink',
     accent: 'border-accent/40 bg-accent/10 text-accentdark',
     moss: 'border-moss/40 bg-mossbg text-moss',
     amber: 'border-amber/40 bg-amberbg text-amber',
+    err: 'border-err/40 bg-errbg text-err',
   }[tone];
   return (
     <span

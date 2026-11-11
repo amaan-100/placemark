@@ -58,6 +58,7 @@ export type ApplicationList = {
 export type ApplicationUpdate = {
   resume_draft?: string;
   cover_note?: string;
+  deadline?: string | null;
 };
 
 export type DraftResponse = {

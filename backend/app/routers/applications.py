@@ -129,7 +129,7 @@ def update_application(
             f"Cannot edit an application in status {application.status}.",
         )
 
-    provided = req.model_dump(exclude_none=True)
+    provided = req.model_dump(exclude_unset=True)
     changed = {
         field: value
         for field, value in provided.items()
@@ -139,13 +139,18 @@ def update_application(
         return ApplicationOut.model_validate(application)
 
     previous_status = application.status
+    previous_deadline = application.deadline
     before_digests = {
-        field: text_digest(getattr(application, field)) for field in changed
+        field: text_digest(getattr(application, field))
+        for field in changed
+        if isinstance(getattr(application, field), str)
     }
     for field, value in changed.items():
         setattr(application, field, value)
 
-    approval_reset = previous_status == "APPROVED"
+    approval_reset = previous_status == "APPROVED" and any(
+        field in changed for field in ("resume_draft", "cover_note")
+    )
     if approval_reset:
         application.status = "PENDING_APPROVAL"
 
@@ -165,11 +170,17 @@ def update_application(
             "approval_reset": approval_reset,
             "before_digests": before_digests,
             "after_digests": {
-                field: text_digest(getattr(application, field)) for field in changed
+                field: text_digest(getattr(application, field))
+                for field in changed
+                if isinstance(getattr(application, field), str)
             },
             "lengths": {
-                field: len(getattr(application, field)) for field in changed
+                field: len(getattr(application, field))
+                for field in changed
+                if isinstance(getattr(application, field), str)
             },
+            "deadline_before": previous_deadline,
+            "deadline_after": application.deadline,
         },
     )
 
