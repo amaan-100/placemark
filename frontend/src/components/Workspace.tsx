@@ -22,6 +22,7 @@ import { defaultQueryFromSkills } from '../lib/roles';
 import { STEPS, type Step } from '../lib/steps';
 import { cn } from '../utils/cn';
 import { ApprovalDialog } from './ApprovalDialog';
+import { AuthDialog } from './AuthDialog';
 import { ConfirmDialog } from './ConfirmDialog';
 import { SessionTag } from './SessionTag';
 import { StepApprove } from './steps/StepApprove';
@@ -120,6 +121,11 @@ export function Workspace({ onExit }: { onExit: () => void }) {
   const [confirmExit, setConfirmExit] = useState(false);
   const [confirmSessionDelete, setConfirmSessionDelete] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
+  const [confirmAccountDelete, setConfirmAccountDelete] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authEnabled, setAuthEnabled] = useState(false);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [llmFailed, setLlmFailed] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
@@ -127,6 +133,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
   const [sessionId] = useState(() => getSessionId());
   const tracePanelRef = useRef<HTMLDivElement>(null);
   const firstStepRender = useRef(true);
+  const authPrompted = useRef(false);
   const traceDragControls = useDragControls();
   const reduce = useReducedMotion();
 
@@ -253,6 +260,21 @@ export function Workspace({ onExit }: { onExit: () => void }) {
         }
       });
 
+    api
+      .getAuthConfig()
+      .then((config) => {
+        if (active) {
+          setAuthEnabled(config.enabled);
+          setAccountEmail(config.user?.email ?? null);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setAuthEnabled(false);
+          setAccountEmail(null);
+        }
+      });
+
     return () => {
       active = false;
     };
@@ -358,6 +380,12 @@ export function Workspace({ onExit }: { onExit: () => void }) {
         notify('success', `Resume analyzed. ${uploaded.facts.skills.length} skills detected.`);
         setQuery((current) => (current.trim() ? current : defaultQueryFromSkills(uploaded.facts.skills)));
         await Promise.all([refreshDashboard(), refreshTraces()]);
+        // Soft prompt: the resume is now real work worth keeping, so offer an
+        // account — once, and never blocking the workspace.
+        if (authEnabled && !accountEmail && !authPrompted.current) {
+          authPrompted.current = true;
+          setAuthOpen(true);
+        }
       } catch (error) {
         handleLoadError(error);
         setUploadError(errorText(error));
@@ -734,12 +762,31 @@ export function Workspace({ onExit }: { onExit: () => void }) {
     try {
       await api.deleteSession();
     } catch {
-      // Even if the request fails, the local session is unrecoverable after
-      // clearing it, so surface nothing and let the user retry from a fresh start.
+      // Ignore: the workspace is gone locally either way; a retry starts fresh.
     } finally {
-      clearSessionId();
       setDeletingSession(false);
       setConfirmSessionDelete(false);
+      if (accountEmail) {
+        // The account survives, and the server already replaced the workspace.
+        // Reload so every panel reads the new, empty one.
+        window.location.reload();
+        return;
+      }
+      clearSessionId();
+      onExit();
+    }
+  };
+
+  const deleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      await api.deleteAccount();
+    } catch {
+      // Fall through: clear the local session regardless.
+    } finally {
+      setDeletingAccount(false);
+      setConfirmAccountDelete(false);
+      clearSessionId();
       onExit();
     }
   };
@@ -764,7 +811,14 @@ export function Workspace({ onExit }: { onExit: () => void }) {
             </button>
             <div className="flex items-center gap-3">
               <p className="font-display text-lg font-bold tracking-tight">Placemark</p>
-              <SessionTag sessionId={sessionId} onRequestDelete={() => setConfirmSessionDelete(true)} />
+              <SessionTag
+                sessionId={sessionId}
+                email={accountEmail}
+                authEnabled={authEnabled}
+                onRequestDelete={() => setConfirmSessionDelete(true)}
+                onRequestSignIn={() => setAuthOpen(true)}
+                onRequestDeleteAccount={() => setConfirmAccountDelete(true)}
+              />
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
@@ -1166,10 +1220,41 @@ export function Workspace({ onExit }: { onExit: () => void }) {
       />
 
       <ConfirmDialog
+        open={confirmAccountDelete}
+        title="Delete your account?"
+        description="This permanently deletes your account and every workspace it owns — resume, drafts, applications, interviews, and history. This cannot be undone."
+        confirmLabel="Delete my account"
+        busy={deletingAccount}
+        onConfirm={() => {
+          void deleteAccount();
+        }}
+        onCancel={() => {
+          if (!deletingAccount) {
+            setConfirmAccountDelete(false);
+          }
+        }}
+      />
+
+      <AuthDialog
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        onSignedIn={() => {
+          setAuthOpen(false);
+          // The account's workspace replaces this browser's; a reload is the
+          // simplest way to pull every panel from the right tenant.
+          window.location.reload();
+        }}
+      />
+
+      <ConfirmDialog
         open={confirmSessionDelete}
-        title="Delete this session?"
-        description="This removes your resume, drafts, applications, interviews, and activity history from our database. This cannot be undone."
-        confirmLabel="Delete everything"
+        title={accountEmail ? 'Delete this workspace data?' : 'Delete this session?'}
+        description={
+          accountEmail
+            ? 'This removes your resume, drafts, applications, interviews, and activity history. Your account stays, and you start with an empty workspace. This cannot be undone.'
+            : 'This removes your resume, drafts, applications, interviews, and activity history from our database. This cannot be undone.'
+        }
+        confirmLabel={accountEmail ? 'Delete workspace data' : 'Delete everything'}
         busy={deletingSession}
         onConfirm={() => {
           void deleteSession();

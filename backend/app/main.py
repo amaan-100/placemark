@@ -24,6 +24,7 @@ from .middleware import (
 )
 from .routers import (
     applications,
+    auth,
     dashboard,
     health,
     interviews,
@@ -102,6 +103,7 @@ app.add_exception_handler(Exception, unhandled_error_handler)
 
 for module in (
     health,
+    auth,
     sessions,
     resumes,
     jobs,

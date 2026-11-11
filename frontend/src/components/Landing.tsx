@@ -5,9 +5,12 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
+import { useState } from "react";
 import { Btn, Mono, Reveal, ScoreBar } from "./ui";
+import { AuthDialog } from "./AuthDialog";
 
 export function Landing({ onEnter }: { onEnter: () => void }) {
+  const [authOpen, setAuthOpen] = useState(false);
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-sm">
@@ -20,13 +23,20 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
               <p className="font-display text-lg font-bold tracking-tight">
                 Placemark
               </p>
-              <Mono className="mt-0.5 text-inksoft">Anonymous session</Mono>
+              <Mono className="mt-0.5 text-inksoft">No account needed</Mono>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <Mono className="hidden text-inksoft md:block">
-              No accounts · Nothing auto-submitted
+              Sign in to sync - nothing auto-submitted
             </Mono>
+            <Btn
+              onClick={() => setAuthOpen(true)}
+              variant="ghost"
+              className="hidden sm:inline-flex"
+            >
+              Sign in
+            </Btn>
             <Btn onClick={onEnter} className="hidden sm:inline-flex">
               Open the workspace <ArrowRight className="h-4 w-4" />
             </Btn>
@@ -329,9 +339,10 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
                   Ready when you are.
                 </p>
                 <p className="mt-1 text-sm text-inksoft">
-                  No account needed. Your resume is stored for this browser
-                  session only — deleted after 30 days of inactivity, or
-                  immediately when you delete it.
+                  No account needed to start. Without signing in, your resume
+                  lives in this browser and is deleted after 30 days of
+                  inactivity. Sign in and it is kept on every device until you
+                  delete it.
                 </p>
               </div>
               <Btn onClick={onEnter} className="min-h-[52px] px-7">
@@ -350,6 +361,15 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
           <Mono className="text-inksoft">Clear, calm, direct. No hype.</Mono>
         </div>
       </footer>
+
+      <AuthDialog
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        onSignedIn={() => {
+          setAuthOpen(false);
+          onEnter();
+        }}
+      />
     </div>
   );
 }

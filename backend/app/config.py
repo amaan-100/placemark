@@ -1,11 +1,22 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[1]
+
+
+def _origin(url: str) -> str:
+    """Scheme + host of a URL, e.g. `https://x.neon.tech` from a deeper path."""
+    if not url:
+        return ""
+    parts = urlsplit(url)
+    if not parts.scheme or not parts.netloc:
+        return url.rstrip("/")
+    return f"{parts.scheme}://{parts.netloc}"
 
 
 class Settings(BaseSettings):
@@ -35,6 +46,17 @@ class Settings(BaseSettings):
     session_header_name: str = "X-Session-Id"
     session_max_age_seconds: int = 60 * 60 * 24 * 30
     session_retention_days: int = 30
+
+    # Neon Managed Better Auth. When unset, auth is unavailable and the app
+    # behaves exactly like the original anonymous-only product.
+    #
+    # Note: the JWKS lives under `{origin}{base_path}/.well-known/jwks.json`, but
+    # the `iss` and `aud` claims carry only the origin. Leaving these empty
+    # derives the origin from neon_auth_base_url, which is the common case.
+    neon_auth_base_url: str = ""
+    neon_auth_jwks_url: str = ""
+    neon_auth_issuer: str = ""
+    neon_auth_audience: str = ""
 
     max_upload_bytes: int = 8 * 1024 * 1024
     max_resume_chars: int = 200_000
@@ -84,6 +106,18 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def auth_issuer(self) -> str:
+        if self.neon_auth_issuer:
+            return self.neon_auth_issuer
+        return _origin(self.neon_auth_base_url)
+
+    @property
+    def auth_audience(self) -> str:
+        if self.neon_auth_audience:
+            return self.neon_auth_audience
+        return _origin(self.neon_auth_base_url)
 
     @property
     def is_production(self) -> bool:

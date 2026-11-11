@@ -242,6 +242,18 @@ class SessionDeleteResponse(BaseModel):
     deleted: int
 
 
+class AuthUserResponse(BaseModel):
+    id: str
+    email: str
+    display_name: str | None
+    created_at: datetime
+
+
+class AuthStatusResponse(BaseModel):
+    enabled: bool
+    user: AuthUserResponse | None
+
+
 class HealthResponse(BaseModel):
     status: str
     agent: str

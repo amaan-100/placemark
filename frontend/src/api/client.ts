@@ -18,14 +18,14 @@ import type {
   ResumeUpload,
   SessionInfo,
   Trace,
-} from './types';
+} from "./types";
+import { getAccessToken } from "../lib/auth";
 
-const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api').replace(
-  /\/$/,
-  '',
-);
-const SESSION_KEY = 'placement_copilot_session_id';
-const SESSION_HEADER = 'X-Session-Id';
+const API_BASE = (
+  import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api"
+).replace(/\/$/, "");
+const SESSION_KEY = "placement_copilot_session_id";
+const SESSION_HEADER = "X-Session-Id";
 const REQUEST_TIMEOUT_MS = 180_000;
 const WAKING_CODES = new Set([502, 503, 504]);
 
@@ -39,30 +39,33 @@ export class ApiError extends Error {
   constructor(
     message: string,
     status = 0,
-    code = 'unknown_error',
+    code = "unknown_error",
     requestId?: string,
     details?: unknown,
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.requestId = requestId;
     this.details = details;
     this.retryable =
-      code === 'network_error' ||
-      code === 'server_waking' ||
+      code === "network_error" ||
+      code === "server_waking" ||
       WAKING_CODES.has(status);
   }
 }
 
 function createId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
     const random = (Math.random() * 16) | 0;
-    const value = char === 'x' ? random : (random & 0x3) | 0x8;
+    const value = char === "x" ? random : (random & 0x3) | 0x8;
     return value.toString(16);
   });
 }
@@ -101,19 +104,30 @@ async function readJson(response: Response): Promise<unknown> {
 
 async function doRequest<T>(path: string, init: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    REQUEST_TIMEOUT_MS,
+  );
   const headers = new Headers(init.headers);
   headers.set(SESSION_HEADER, getSessionId());
-  headers.set('Accept', 'application/json');
+  headers.set("Accept", "application/json");
   if (init.body && !(init.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
+    headers.set("Content-Type", "application/json");
+  }
+
+  // Signed in: the bearer token decides which workspace the server uses, and
+  // the X-Session-Id header above lets it adopt anonymous progress on first
+  // sign-in. Signed out: the header alone identifies the browser session.
+  const token = await getAccessToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       ...init,
       headers,
-      credentials: 'include',
+      credentials: "include",
       signal: controller.signal,
     });
 
@@ -127,14 +141,14 @@ async function doRequest<T>(path: string, init: RequestInit): Promise<T> {
     if (!response.ok) {
       const body = (payload ?? {}) as ApiErrorBody;
       const message = waking
-        ? 'The workspace is waking up. Wait a moment and try again.'
-        : body.error?.message ??
+        ? "The workspace is waking up. Wait a moment and try again."
+        : (body.error?.message ??
           body.detail ??
-          `Request failed with status ${response.status}.`;
+          `Request failed with status ${response.status}.`);
       throw new ApiError(
         message,
         response.status,
-        waking ? 'server_waking' : body.error?.code ?? 'http_error',
+        waking ? "server_waking" : (body.error?.code ?? "http_error"),
         body.request_id,
         body.error?.details,
       );
@@ -142,9 +156,9 @@ async function doRequest<T>(path: string, init: RequestInit): Promise<T> {
 
     if (payload === null) {
       throw new ApiError(
-        'The workspace is still starting. Wait a moment and try again.',
+        "The workspace is still starting. Wait a moment and try again.",
         503,
-        'server_waking',
+        "server_waking",
       );
     }
 
@@ -153,24 +167,28 @@ async function doRequest<T>(path: string, init: RequestInit): Promise<T> {
     if (error instanceof ApiError) {
       throw error;
     }
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (error instanceof DOMException && error.name === "AbortError") {
       throw new ApiError(
-        'The request timed out. The workspace may still be waking; wait a moment and try again.',
+        "The request timed out. The workspace may still be waking; wait a moment and try again.",
         0,
-        'timeout',
+        "timeout",
       );
     }
     throw new ApiError(
-      'Cannot reach the API. The workspace may be waking up; try again in a moment.',
+      "Cannot reach the API. The workspace may be waking up; try again in a moment.",
       0,
-      'network_error',
+      "network_error",
     );
   } finally {
     window.clearTimeout(timeout);
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}, retries = 1): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  retries = 1,
+): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
@@ -184,7 +202,7 @@ async function request<T>(path: string, init: RequestInit = {}, retries = 1): Pr
       }
       const slowRecovery =
         error instanceof ApiError &&
-        (error.code === 'server_waking' || error.status >= 500);
+        (error.code === "server_waking" || error.status >= 500);
       await delay((slowRecovery ? 1_000 : 250) * (attempt + 1));
     }
   }
@@ -192,64 +210,76 @@ async function request<T>(path: string, init: RequestInit = {}, retries = 1): Pr
 }
 
 export const api = {
-  getHealth: () => request<Health>('/health', {}, 1),
-  getSession: () => request<SessionInfo>('/session', {}, 0),
-  deleteSession: () => request<{ deleted: number }>('/session', { method: 'DELETE' }, 0),
-  getLatestResume: () => request<ResumeInfo>('/resume/latest'),
+  getHealth: () => request<Health>("/health", {}, 1),
+  getSession: () => request<SessionInfo>("/session", {}, 0),
+  deleteSession: () =>
+    request<{ deleted: number }>("/session", { method: "DELETE" }, 0),
+  getAuthConfig: () =>
+    request<{ enabled: boolean; user: { id: string; email: string } | null }>(
+      "/auth/config",
+      {},
+      0,
+    ),
+  deleteAccount: () =>
+    request<{ deleted: number }>("/auth/account", { method: "DELETE" }, 0),
+  getLatestResume: () => request<ResumeInfo>("/resume/latest"),
   uploadResume: (file: File) => {
     const body = new FormData();
-    body.append('file', file);
-    return request<ResumeUpload>('/resume/upload', { method: 'POST', body }, 0);
+    body.append("file", file);
+    return request<ResumeUpload>("/resume/upload", { method: "POST", body }, 0);
   },
   deleteResume: () =>
-    request<{ deleted: number }>('/resume/current', { method: 'DELETE' }, 0),
+    request<{ deleted: number }>("/resume/current", { method: "DELETE" }, 0),
   searchJobs: (query: string, location?: string) =>
     request<JobSearchResponse>(
-      '/jobs/search',
-      { method: 'POST', body: JSON.stringify({ query, location }) },
+      "/jobs/search",
+      { method: "POST", body: JSON.stringify({ query, location }) },
       0,
     ),
   draftApplication: (jobId: number) =>
     request<DraftResponse>(
-      '/applications/draft',
-      { method: 'POST', body: JSON.stringify({ job_id: jobId }) },
+      "/applications/draft",
+      { method: "POST", body: JSON.stringify({ job_id: jobId }) },
       0,
     ),
-  getApplications: () => request<ApplicationList>('/applications'),
+  getApplications: () => request<ApplicationList>("/applications"),
   updateApplication: (applicationId: number, draft: ApplicationUpdate) =>
     request<Application>(
       `/applications/${applicationId}`,
-      { method: 'PATCH', body: JSON.stringify(draft) },
+      { method: "PATCH", body: JSON.stringify(draft) },
       0,
     ),
   approveApplication: (applicationId: number) =>
     request<ApproveResponse>(
       `/applications/${applicationId}/approve`,
-      { method: 'POST' },
+      { method: "POST" },
       0,
     ),
   deleteApplication: (applicationId: number) =>
     request<ApplicationDeleteResponse>(
       `/applications/${applicationId}`,
-      { method: 'DELETE' },
+      { method: "DELETE" },
       0,
     ),
   startInterview: (goal: string) =>
     request<InterviewStart>(
-      '/interviews',
-      { method: 'POST', body: JSON.stringify({ goal }) },
+      "/interviews",
+      { method: "POST", body: JSON.stringify({ goal }) },
       0,
     ),
   submitInterviewAnswer: (interviewId: number, answer: string) =>
     request<InterviewAnswerResponse>(
       `/interviews/${interviewId}/evaluate`,
-      { method: 'POST', body: JSON.stringify({ interview_id: interviewId, answer }) },
+      {
+        method: "POST",
+        body: JSON.stringify({ interview_id: interviewId, answer }),
+      },
       0,
     ),
   getInterview: (interviewId: number) =>
     request<InterviewDetailResponse>(`/interviews/${interviewId}`, {}, 0),
-  listInterviews: () => request<InterviewListResponse>('/interviews', {}, 0),
-  getDashboard: () => request<Dashboard>('/dashboard'),
-  getTraces: () => request<Trace[]>('/traces'),
-  getLlmStatus: () => request<LlmStatus>('/llm/status', {}, 0),
+  listInterviews: () => request<InterviewListResponse>("/interviews", {}, 0),
+  getDashboard: () => request<Dashboard>("/dashboard"),
+  getTraces: () => request<Trace[]>("/traces"),
+  getLlmStatus: () => request<LlmStatus>("/llm/status", {}, 0),
 };
