@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlarmClock, X } from 'lucide-react';
-import type { ReminderList } from '../api/types';
-import { cn } from '../utils/cn';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlarmClock, X } from "lucide-react";
+import type { ReminderList } from "../api/types";
+import { cn } from "../utils/cn";
 
-const SNOOZE_KEY = 'pc_reminders_snoozed_until';
-const SEEN_STATE_KEY = 'pc_reminders_seen_state';
+const SNOOZE_KEY = "pc_reminders_snoozed_until";
+const SEEN_STATE_KEY = "pc_reminders_seen_state";
 
 function read(key: string): string | null {
   try {
@@ -28,7 +28,15 @@ function write(key: string, value: string | null): void {
 
 /** Midnight at the start of the next local calendar day. */
 function nextMidnight(now = new Date()): number {
-  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  const next = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
+    0,
+    0,
+    0,
+    0,
+  );
   return next.getTime();
 }
 
@@ -39,10 +47,15 @@ function nextMidnight(now = new Date()): number {
  */
 function situationKey(reminders: ReminderList): string {
   const urgent = reminders.items
-    .filter((item) => item.kind === 'overdue' || item.kind === 'today' || item.kind === 'soon')
+    .filter(
+      (item) =>
+        item.kind === "overdue" ||
+        item.kind === "today" ||
+        item.kind === "soon",
+    )
     .map((item) => item.application_id)
     .sort((a, b) => a - b);
-  return `${reminders.overdue}:${urgent.join(',')}`;
+  return `${reminders.overdue}:${urgent.join(",")}`;
 }
 
 export function ReminderBanner({
@@ -57,19 +70,27 @@ export function ReminderBanner({
     const parsed = raw ? Number(raw) : 0;
     return Number.isFinite(parsed) ? parsed : 0;
   });
-  const [hiddenState, setHiddenState] = useState<string | null>(() => read(SEEN_STATE_KEY));
+  const [hiddenState, setHiddenState] = useState<string | null>(() =>
+    read(SEEN_STATE_KEY),
+  );
   const [now, setNow] = useState(() => Date.now());
 
   // Re-evaluate once the snooze expires without requiring a reload.
   useEffect(() => {
     if (now < snoozedUntil) {
-      const timer = window.setTimeout(() => setNow(Date.now()), snoozedUntil - now + 1000);
+      const timer = window.setTimeout(
+        () => setNow(Date.now()),
+        snoozedUntil - now + 1000,
+      );
       return () => window.clearTimeout(timer);
     }
     return undefined;
   }, [now, snoozedUntil]);
 
-  const key = useMemo(() => (reminders ? situationKey(reminders) : ''), [reminders]);
+  const key = useMemo(
+    () => (reminders ? situationKey(reminders) : ""),
+    [reminders],
+  );
 
   const snooze = useCallback(() => {
     const until = nextMidnight();
@@ -104,28 +125,30 @@ export function ReminderBanner({
   if (reminders.due_soon > 0) {
     parts.push(`${reminders.due_soon} due within 7 days`);
   }
-  const headline = parts.join(' · ');
+  const headline = parts.join(" · ");
 
   return (
     <div
       className={cn(
-        'border-t border-line bg-card px-4 py-2.5 sm:px-6 lg:px-10',
-        reminders.overdue > 0 && 'border-t-2 border-t-err/40 bg-errbg/40',
+        "border-t border-line bg-card px-4 py-2 sm:px-6 lg:px-10",
+        reminders.overdue > 0 && "border-t-2 border-t-err/40 bg-errbg/40",
       )}
       role="status"
     >
-      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-2">
+      {/* Compact single row: headline, review, dismiss. Keeps the banner from
+          eating a fifth of a phone screen. */}
+      <div className="mx-auto flex max-w-[1600px] items-center gap-2 sm:gap-3">
         <AlarmClock
           className={cn(
-            'h-4 w-4 shrink-0',
-            reminders.overdue > 0 ? 'text-err' : 'text-amber',
+            "h-4 w-4 shrink-0",
+            reminders.overdue > 0 ? "text-err" : "text-amber",
           )}
           aria-hidden="true"
         />
-        <p className="text-[13px] font-medium">
+        <p className="min-w-0 flex-1 truncate text-[13px] font-medium">
           {headline}
           <span className="hidden text-inksoft sm:inline">
-            {' '}
+            {" "}
             — add the next one to your calendar.
           </span>
         </p>
@@ -133,45 +156,47 @@ export function ReminderBanner({
         <button
           type="button"
           onClick={onReview}
-          className="min-h-[44px] rounded-[3px] px-2 text-[13px] font-semibold text-accentdark underline underline-offset-2 hover:text-ink"
+          className="min-h-[44px] shrink-0 rounded-[3px] px-1.5 text-[13px] font-semibold text-accentdark underline underline-offset-2 hover:text-ink sm:px-2"
         >
-          Review deadlines
+          Review
+          <span className="hidden sm:inline"> deadlines</span>
         </button>
 
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            onClick={snooze}
-            className="min-h-[44px] rounded-[3px] px-2 text-xs font-medium text-inksoft hover:text-ink"
-          >
-            Dismiss for today
-          </button>
-          <button
-            type="button"
-            onClick={hideForThisSituation}
-            className="hidden min-h-[44px] rounded-[3px] px-2 text-xs font-medium text-inksoft hover:text-ink sm:inline-flex sm:items-center"
-          >
-            Don&rsquo;t show again
-          </button>
-          <button
-            type="button"
-            onClick={snooze}
-            aria-label="Dismiss reminders until tomorrow"
-            title="Dismiss until tomorrow"
-            className="flex h-11 w-11 items-center justify-center rounded-[3px] border border-line text-inksoft hover:border-ink hover:text-ink"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
+        <button
+          type="button"
+          onClick={snooze}
+          className="hidden min-h-[44px] shrink-0 rounded-[3px] px-2 text-xs font-medium text-inksoft hover:text-ink sm:inline-flex sm:items-center"
+        >
+          Dismiss for today
+        </button>
 
-      <div className="mx-auto mt-1 flex max-w-[1600px] justify-end sm:hidden">
         <button
           type="button"
           onClick={hideForThisSituation}
-          className="min-h-[44px] px-2 text-[11px] font-medium text-inksoft underline underline-offset-2"
+          className="hidden min-h-[44px] shrink-0 rounded-[3px] px-2 text-xs font-medium text-inksoft hover:text-ink sm:inline-flex sm:items-center"
         >
-          Don&rsquo;t show this reminder again
+          Don&rsquo;t show again
+        </button>
+
+        <button
+          type="button"
+          onClick={snooze}
+          aria-label="Dismiss reminders until tomorrow"
+          title="Dismiss until tomorrow"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[3px] border border-line text-inksoft hover:border-ink hover:text-ink"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Mobile gets the "don't show again" as a quiet second line. */}
+      <div className="mx-auto flex max-w-[1600px] justify-end pr-1 sm:hidden">
+        <button
+          type="button"
+          onClick={hideForThisSituation}
+          className="flex min-h-[44px] items-center px-1 text-[11px] font-medium text-inksoft underline underline-offset-2 hover:text-ink"
+        >
+          Don&rsquo;t show again
         </button>
       </div>
     </div>
