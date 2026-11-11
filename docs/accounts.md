@@ -192,6 +192,25 @@ optional auth variables.
 Deployment still needs these set in Render (backend) and Vercel
 (`VITE_NEON_AUTH_URL`). Not done on this branch.
 
+### Why `VITE_` must stay on `VITE_NEON_AUTH_URL`
+
+Vercel shows a generic warning when a variable name starts with a public
+framework prefix: *"Public prefixes expose values to the browser. If that's
+safe, change the variable to Config."* **Do not rename this one.**
+
+- In Vite, only `VITE_`-prefixed variables are injected into `import.meta.env`
+  for browser code. Renaming it makes `src/lib/auth.ts` read `undefined`, and
+  auth silently disables in production.
+- The value is the Neon Auth base URL. It is an intentionally public endpoint
+  — the browser must call it to sign in. It is the same class of value as a
+  Supabase URL or a Clerk publishable key. It contains no credential.
+- Verified by building with both values set and grepping the output bundle:
+  the auth URL appears in `dist/assets/*.js` (expected), and `LLM_API_KEY`,
+  `DATABASE_URL`, `npg_`, and `NEON_AUTH_JWKS_URL` do not.
+
+The genuine secrets stay on Render only and never get a `VITE_` prefix:
+`DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `LLM_API_KEY`.
+
 ---
 
 ## 8. Verification
