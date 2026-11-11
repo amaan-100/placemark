@@ -725,7 +725,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div className="leading-none">
-              <p className="font-display text-lg font-bold tracking-tight">Placement Co-pilot</p>
+              <p className="font-display text-lg font-bold tracking-tight">Placemark</p>
               <Mono className="mt-0.5 text-inksoft">
                 {sessionId.slice(0, 8).toUpperCase()} · Anonymous
               </Mono>

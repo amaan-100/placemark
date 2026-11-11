@@ -1,5 +1,5 @@
 ---
-name: Placement Co-pilot
+name: Placemark
 description: A warm, editorial placement desk that turns a resume into a guided, approval-gated route.
 colors:
   paper: "#F6F1E7"
@@ -79,7 +79,7 @@ components:
     padding: "2px 8px"
 ---
 
-# Design System: Placement Co-pilot
+# Design System: Placemark
 
 ## Status
 
@@ -89,7 +89,7 @@ This document describes the system that is **shipped** in `frontend/src`. It rep
 
 **Creative North Star: "The Ledger."**
 
-Placement Co-pilot reads like a well-kept placement ledger: warm paper, ink, ruled lines, and one vermilion stamp for the action that matters. The interface should feel authored and accountable, not like a generic AI dashboard.
+Placemark reads like a well-kept placement ledger: warm paper, ink, ruled lines, and one vermilion stamp for the action that matters. The interface should feel authored and accountable, not like a generic AI dashboard.
 
 The landing page is an editorial front matter: a serif promise, a bordered example dossier, then the route and guardrails. The workspace is a two-plane desk — a numbered route rail and the working document — with the live agent trace available on demand from the header. The route is sequential; approval is explicit; nothing is submitted automatically.
 

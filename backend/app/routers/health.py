@@ -15,7 +15,7 @@ router = APIRouter(tags=["health"])
 def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
-        agent="Placement Co-pilot",
+        agent="Placemark",
         approval_gate=True,
     )
 

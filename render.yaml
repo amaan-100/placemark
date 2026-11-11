@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: placement-copilot-api
+    name: placemark-api
     runtime: python
     plan: free
     rootDir: backend

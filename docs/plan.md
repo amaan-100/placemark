@@ -1,6 +1,6 @@
 # Production-Ready Hackathon Plan
 
-This plan turns the Placement Co-pilot demo into a reliable, judge-ready product.
+This plan turns the Placemark demo into a reliable, judge-ready product.
 "Production-ready" here means a hardened single-instance deployment: real data,
 guarded generation, session isolation, an auditable approval gate, tests, and a
 repeatable deploy. It does not mean a multi-tenant SaaS.
