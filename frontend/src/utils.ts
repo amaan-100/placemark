@@ -73,7 +73,11 @@ export function summarizeTrace(
   }
   if (action === 'question' || action === 'start') {
     const goal = String(output.goal ?? '');
-    return goal ? `Generated interview question — ${goal}` : 'Generated interview question';
+    return goal ? `Generated interview question - ${goal}` : 'Generated interview question';
+  }
+  if (action === 'export_ics') {
+    const deadline = String(output.deadline ?? '');
+    return deadline ? `Exported deadline ${deadline} with 3-day and 1-day alarms` : 'Exported deadline';
   }
   if (used !== undefined) {
     return `${action} (${used ? 'AI-assisted' : 'template fallback'})`;

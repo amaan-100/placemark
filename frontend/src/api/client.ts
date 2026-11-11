@@ -16,6 +16,7 @@ import type {
   LlmStatus,
   ResumeInfo,
   ResumeUpload,
+  ReminderList,
   SessionInfo,
   Trace,
 } from "./types";
@@ -188,8 +189,7 @@ async function request<T>(
   path: string,
   init: RequestInit = {},
   retries = 1,
-): Promise<T> {
-  let lastError: unknown;
+): Promise<T> {  let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
       return await doRequest<T>(path, init);
@@ -207,6 +207,60 @@ async function request<T>(
     }
   }
   throw lastError;
+}
+
+/**
+ * Fetch a calendar file and hand it to the browser as a download.
+ *
+ * Deliberately separate from `request()`: that helper parses every body as
+ * JSON and treats an unparseable payload as "server waking", which would break
+ * a `text/calendar` response. The filename comes from Content-Disposition,
+ * which the backend exposes through CORS.
+ */
+export async function downloadDeadlineIcs(
+  applicationId: number,
+  fallbackName = "placemark-deadline.ics",
+): Promise<void> {
+  const headers = new Headers({ Accept: "text/calendar" });
+  headers.set(SESSION_HEADER, getSessionId());
+  const token = await getAccessToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_BASE}/applications/${applicationId}/deadline.ics`, {
+    headers,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    let message = `Could not build the calendar file (${response.status}).`;
+    try {
+      const body = (await response.json()) as ApiErrorBody;
+      message = body.error?.message ?? body.detail ?? message;
+    } catch {
+      // Non-JSON error body; keep the generic message.
+    }
+    throw new ApiError(message, response.status, "calendar_export_failed");
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  const filename = match?.[1]?.trim() || fallbackName;
+
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 export const api = {
@@ -280,6 +334,7 @@ export const api = {
     request<InterviewDetailResponse>(`/interviews/${interviewId}`, {}, 0),
   listInterviews: () => request<InterviewListResponse>("/interviews", {}, 0),
   getDashboard: () => request<Dashboard>("/dashboard"),
+  getReminders: () => request<ReminderList>("/reminders", {}, 0),
   getTraces: () => request<Trace[]>("/traces"),
   getLlmStatus: () => request<LlmStatus>("/llm/status", {}, 0),
 };

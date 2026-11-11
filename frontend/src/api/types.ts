@@ -176,3 +176,19 @@ export type ApiErrorBody = {
   request_id?: string;
   detail?: string;
 };
+
+export type Reminder = {
+  application_id: number;
+  title: string;
+  company: string;
+  deadline: string;
+  days_left: number;
+  kind: "overdue" | "today" | "soon" | "later";
+};
+
+export type ReminderList = {
+  items: Reminder[];
+  overdue: number;
+  due_soon: number;
+  total: number;
+};

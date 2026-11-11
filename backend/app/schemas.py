@@ -275,3 +275,19 @@ class AgentTraceOut(BaseModel):
     latency_ms: int
     output: dict[str, Any]
     created_at: datetime
+
+
+class ReminderOut(BaseModel):
+    application_id: int
+    title: str
+    company: str
+    deadline: str
+    days_left: int
+    kind: str
+
+
+class ReminderListResponse(BaseModel):
+    items: list[ReminderOut]
+    overdue: int
+    due_soon: int
+    total: int

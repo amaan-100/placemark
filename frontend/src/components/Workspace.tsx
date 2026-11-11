@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useDragControls, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, Check, Clock3, GripVertical, Loader2, MessageSquareText, X } from 'lucide-react';
 import { ApiError, api, clearSessionId, getSessionId } from '../api/client';
+import { downloadDeadlineIcs } from '../api/client';
 import { getCurrentUser } from '../lib/auth';
 import type {
   Application,
@@ -14,6 +15,7 @@ import type {
   InterviewTurnOut,
   Job,
   LlmStatus,
+  ReminderList,
   ResumeInfo,
   Trace,
 } from '../api/types';
@@ -25,6 +27,7 @@ import { cn } from '../utils/cn';
 import { ApprovalDialog } from './ApprovalDialog';
 import { AuthDialog } from './AuthDialog';
 import { ConfirmDialog } from './ConfirmDialog';
+import { ReminderBanner } from './ReminderBanner';
 import { SessionTag } from './SessionTag';
 import { StepApprove } from './steps/StepApprove';
 import { StepMatches } from './steps/StepMatches';
@@ -121,6 +124,8 @@ export function Workspace({ onExit }: { onExit: () => void }) {
   const [pendingDelete, setPendingDelete] = useState<Application | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
   const [confirmSessionDelete, setConfirmSessionDelete] = useState(false);
+  const [reminders, setReminders] = useState<ReminderList | null>(null);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
   const [deletingSession, setDeletingSession] = useState(false);
   const [confirmAccountDelete, setConfirmAccountDelete] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -156,6 +161,15 @@ export function Workspace({ onExit }: { onExit: () => void }) {
       handleLoadError(error);
     }
   }, [handleLoadError]);
+
+  const refreshReminders = useCallback(async () => {
+    try {
+      setReminders(await api.getReminders());
+    } catch {
+      // Reminders are advisory; a failure must not disturb the workspace.
+      setReminders(null);
+    }
+  }, []);
 
   const refreshApplications = useCallback(async () => {
     try {
@@ -246,6 +260,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
     void refreshTraces();
     void refreshLatestResume();
     void refreshInterviews();
+    void refreshReminders();
     api
       .getLlmStatus()
       .then((status) => {
@@ -307,6 +322,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
     refreshDashboard,
     refreshInterviews,
     refreshLatestResume,
+    refreshReminders,
     refreshTraces,
   ]);
 
@@ -461,7 +477,11 @@ export function Workspace({ onExit }: { onExit: () => void }) {
             ? 'Draft updated. Approval reset; review and approve again.'
             : 'Draft changes saved.',
         );
-        await Promise.all([refreshApplications(), refreshDashboard()]);
+        await Promise.all([
+          refreshApplications(),
+          refreshDashboard(),
+          refreshReminders(),
+        ]);
         return updated;
       } catch (error) {
         handleLoadError(error);
@@ -494,7 +514,11 @@ export function Workspace({ onExit }: { onExit: () => void }) {
           if (deadlineChanged) {
             current = await api.updateApplication(approvalTarget.id, draft);
             notify('success', 'Deadline updated. Approval kept.');
-            await Promise.all([refreshApplications(), refreshDashboard()]);
+            await Promise.all([
+              refreshApplications(),
+              refreshDashboard(),
+              refreshReminders(),
+            ]);
           }
           setApprovalTarget(null);
           return true;
@@ -639,6 +663,22 @@ export function Workspace({ onExit }: { onExit: () => void }) {
   const handleDeleteApplication = useCallback((application: Application) => {
     setPendingDelete(application);
   }, []);
+
+  const handleAddToCalendar = useCallback(
+    async (application: Application) => {
+      setCalendarError(null);
+      try {
+        await downloadDeadlineIcs(application.id);
+        notify('success', `Calendar file ready for ${application.title}.`);
+        await refreshTraces();
+      } catch (error) {
+        const message = errorText(error);
+        setCalendarError(message);
+        notify('error', message);
+      }
+    },
+    [notify, refreshTraces],
+  );
 
   const handleStartInterview = useCallback(async () => {
     const goal = selectedJob
@@ -884,6 +924,14 @@ export function Workspace({ onExit }: { onExit: () => void }) {
             </button>
           </div>
         </div>
+        <ReminderBanner reminders={reminders} onReview={() => setStep(3)} />
+        {calendarError ? (
+          <div className="border-t border-err/40 bg-errbg px-4 py-2 sm:px-6 lg:px-10" role="alert">
+            <p className="mx-auto max-w-[1600px] text-[13px] font-medium text-err">
+              {calendarError}
+            </p>
+          </div>
+        ) : null}
         {showWakeNotice ? (
           <div className="border-t border-line bg-paper2 px-4 py-2 sm:px-6 lg:px-10" role="status">
             <p className="mx-auto flex max-w-[1600px] items-center gap-2 text-[13px] font-medium text-inksoft">
@@ -1109,6 +1157,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
                   }}
                   onOpen={handleOpenApplication}
                   onDelete={handleDeleteApplication}
+                  onAddToCalendar={handleAddToCalendar}
                   onBack={() => setStep(2)}
                   onNext={() => setStep(4)}
                 />

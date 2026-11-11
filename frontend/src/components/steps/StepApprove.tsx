@@ -5,6 +5,7 @@ import {
   Check,
   Clock3,
   Copy,
+  CalendarPlus,
   Loader2,
   PenLine,
   ShieldCheck,
@@ -48,6 +49,7 @@ export function StepApprove({
   onReview,
   onOpen,
   onDelete,
+  onAddToCalendar,
   onBack,
   onNext,
 }: {
@@ -61,6 +63,7 @@ export function StepApprove({
   onReview: () => void;
   onOpen: (application: Application) => void;
   onDelete: (application: Application) => void;
+  onAddToCalendar: (application: Application) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -332,6 +335,18 @@ export function StepApprove({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {deadline.kind !== 'none' ? (
+                      <button
+                        type="button"
+                        onClick={() => onAddToCalendar(item)}
+                        aria-label={`Add deadline for ${item.title} to your calendar`}
+                        title="Add this deadline to your calendar"
+                        className="flex min-h-[44px] items-center gap-1.5 rounded-[3px] px-2 text-xs font-medium text-inksoft hover:text-ink"
+                      >
+                        <CalendarPlus className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">Calendar</span>
+                      </button>
+                    ) : null}
                     <Btn
                       variant="ghost"
                       onClick={() => onOpen(item)}

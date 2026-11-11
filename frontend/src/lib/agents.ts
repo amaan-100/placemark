@@ -1,12 +1,13 @@
 import type { Trace } from '../api/types';
 
-export type AgentId = 'resume' | 'job' | 'document' | 'interview' | 'system';
+export type AgentId = 'resume' | 'job' | 'document' | 'interview' | 'calendar' | 'system';
 
 export const AGENT_META: Record<AgentId, { name: string; short: string; color: string }> = {
   resume: { name: 'Resume Agent', short: 'RES', color: '#2F5D3A' },
   job: { name: 'Job Agent', short: 'JOB', color: '#C23B0A' },
   document: { name: 'Document Agent', short: 'DOC', color: '#7A4E1F' },
   interview: { name: 'Interview Agent', short: 'INT', color: '#3E4A6B' },
+  calendar: { name: 'Calendar Agent', short: 'CAL', color: '#5B3A72' },
   system: { name: 'Session', short: 'SYS', color: '#57503F' },
 };
 
@@ -21,6 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
   evaluate: 'Answer scored',
   question: 'Interview question ready',
   start: 'Interview started',
+  export_ics: 'Calendar file generated',
 };
 
 export function traceLabel(trace: Trace): string {

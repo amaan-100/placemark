@@ -25,6 +25,7 @@ from .middleware import (
 from .routers import (
     applications,
     auth,
+    calendar,
     dashboard,
     health,
     interviews,
@@ -93,7 +94,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Session-Id", "X-Request-ID"],
+    expose_headers=["X-Session-Id", "X-Request-ID", "Content-Disposition"],
 )
 
 app.add_exception_handler(AppError, app_error_handler)
@@ -108,6 +109,7 @@ for module in (
     resumes,
     jobs,
     applications,
+    calendar,
     interviews,
     dashboard,
     traces,
