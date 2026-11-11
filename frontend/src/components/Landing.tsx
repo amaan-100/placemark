@@ -23,17 +23,19 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
               <p className="font-display text-lg font-bold tracking-tight">
                 Placemark
               </p>
-              <Mono className="mt-0.5 text-inksoft">No account needed</Mono>
+              <Mono className="mt-0.5 hidden text-inksoft sm:block">
+                No account needed
+              </Mono>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Mono className="hidden text-inksoft md:block">
               Sign in to sync - nothing auto-submitted
             </Mono>
             <Btn
               onClick={() => setAuthOpen(true)}
               variant="ghost"
-              className="hidden sm:inline-flex"
+              className="min-h-[44px] px-3 text-xs sm:px-5 sm:text-sm"
             >
               Sign in
             </Btn>

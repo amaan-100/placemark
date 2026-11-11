@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useDragControls, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, Check, Clock3, GripVertical, Loader2, MessageSquareText, X } from 'lucide-react';
 import { ApiError, api, clearSessionId, getSessionId } from '../api/client';
+import { getCurrentUser } from '../lib/auth';
 import type {
   Application,
   ApplicationUpdate,
@@ -260,18 +261,41 @@ export function Workspace({ onExit }: { onExit: () => void }) {
         }
       });
 
+    // Account state comes from the auth client first: it already holds the
+    // session, so the header is correct immediately after sign-in instead of
+    // waiting on a round trip that can race the token becoming readable.
+    void (async () => {
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const localUser = await getCurrentUser();
+        if (!active) {
+          return;
+        }
+        if (localUser) {
+          setAccountEmail(localUser.email);
+          setAuthEnabled(true);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+    })();
+
     api
       .getAuthConfig()
       .then((config) => {
-        if (active) {
-          setAuthEnabled(config.enabled);
-          setAccountEmail(config.user?.email ?? null);
+        if (!active) {
+          return;
+        }
+        setAuthEnabled(config.enabled);
+        // Never let a stale "no user" response clear a locally-known account.
+        if (config.user?.email) {
+          setAccountEmail(config.user.email);
+        } else {
+          setAccountEmail((current) => current ?? null);
         }
       })
       .catch(() => {
         if (active) {
           setAuthEnabled(false);
-          setAccountEmail(null);
         }
       });
 
@@ -381,7 +405,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
         setQuery((current) => (current.trim() ? current : defaultQueryFromSkills(uploaded.facts.skills)));
         await Promise.all([refreshDashboard(), refreshTraces()]);
         // Soft prompt: the resume is now real work worth keeping, so offer an
-        // account — once, and never blocking the workspace.
+        // account â€” once, and never blocking the workspace.
         if (authEnabled && !accountEmail && !authPrompted.current) {
           authPrompted.current = true;
           setAuthOpen(true);
@@ -465,7 +489,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
         let current = approvalTarget;
 
         // A deadline-only edit on an approved application keeps the approval, so
-        // there is nothing to re-approve — save and stop.
+        // there is nothing to re-approve â€” save and stop.
         if (approvalTarget.status === 'APPROVED' && !draftsChanged) {
           if (deadlineChanged) {
             current = await api.updateApplication(approvalTarget.id, draft);
@@ -670,7 +694,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
       setCurrentQuestion(result.next_question ?? null);
       if (result.status === 'COMPLETE') {
         setInterviewComplete(true);
-        notify('success', `Practice set complete — ${result.score}/100.`);
+        notify('success', `Practice set complete â€” ${result.score}/100.`);
       } else {
         notify('success', `Answer scored ${result.score}/100.`);
       }
@@ -871,7 +895,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
         {fallback ? (
           <div className="border-t border-amber/40 bg-amberbg px-4 py-2 sm:px-6 lg:px-10" role="status">
             <p className="mx-auto max-w-[1600px] text-[13px] font-medium text-amber">
-              AI is unavailable. You are in fallback mode — deterministic templates carry every
+              AI is unavailable. You are in fallback mode â€” deterministic templates carry every
               step, and the trace marks each fallback action. Nothing about your control changes.
             </p>
           </div>
@@ -880,7 +904,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
           <div className="border-t border-err/40 bg-errbg px-4 py-2 sm:px-6 lg:px-10" role="alert">
             <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2">
               <p className="text-[13px] font-medium text-err">
-                The workspace cannot reach the API. Your session is safe — retry when the
+                The workspace cannot reach the API. Your session is safe â€” retry when the
                 connection is back.
               </p>
               <Btn
@@ -892,7 +916,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
                 {reconnecting ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                 ) : null}
-                {reconnecting ? 'Retrying…' : 'Retry connection'}
+                {reconnecting ? 'Retryingâ€¦' : 'Retry connection'}
               </Btn>
             </div>
           </div>
@@ -969,7 +993,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
               <Stat label="Interviews" value={dashboard.interviews} />
             </dl>
             <div className="mt-3 flex items-center justify-between rounded-[3px] border border-line bg-card px-3 py-2 text-[13px]">
-              <dt className="text-inksoft">Deadlines ≤ 7d</dt>
+              <dt className="text-inksoft">Deadlines â‰¤ 7d</dt>
               <dd className="font-mono font-semibold">{dueSoonCount}</dd>
             </div>
             <Mono className="mt-5 block text-inksoft">Session status</Mono>
@@ -988,11 +1012,11 @@ export function Workspace({ onExit }: { onExit: () => void }) {
               </div>
               <div className="flex justify-between">
                 <dt className="text-inksoft">Resume</dt>
-                <dd className="font-mono font-medium">{resume ? 'PARSED' : '—'}</dd>
+                <dd className="font-mono font-medium">{resume ? 'PARSED' : 'â€”'}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-inksoft">Role</dt>
-                <dd className="font-mono font-medium">{selectedJob ? 'SELECTED' : '—'}</dd>
+                <dd className="font-mono font-medium">{selectedJob ? 'SELECTED' : 'â€”'}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-inksoft">Draft</dt>
@@ -1001,7 +1025,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
                     ? selectedApplication.status === 'APPROVED'
                       ? 'APPROVED'
                       : 'PENDING'
-                    : '—'}
+                    : 'â€”'}
                 </dd>
               </div>
               <div className="flex justify-between">
@@ -1018,7 +1042,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
           className="min-w-0 px-4 py-6 focus:outline-none sm:px-6 xl:px-10 xl:py-10"
         >
           <p className="sr-only" aria-live="polite">
-            Step 0{step} — {STEPS[step - 1].name}
+            Step 0{step} â€” {STEPS[step - 1].name}
           </p>
           <AnimatePresence mode="wait">
             <motion.div
@@ -1222,7 +1246,7 @@ export function Workspace({ onExit }: { onExit: () => void }) {
       <ConfirmDialog
         open={confirmAccountDelete}
         title="Delete your account?"
-        description="This permanently deletes your account and every workspace it owns — resume, drafts, applications, interviews, and history. This cannot be undone."
+        description="This permanently deletes your account and every workspace it owns â€” resume, drafts, applications, interviews, and history. This cannot be undone."
         confirmLabel="Delete my account"
         busy={deletingAccount}
         onConfirm={() => {
@@ -1293,3 +1317,4 @@ export function Workspace({ onExit }: { onExit: () => void }) {
     </div>
   );
 }
+

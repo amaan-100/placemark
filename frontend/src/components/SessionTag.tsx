@@ -51,18 +51,17 @@ export function SessionTag({
   const label = email ?? "No account needed";
 
   return (
-    <div ref={wrapRef} className="relative ml-3 hidden sm:block">
+    <div ref={wrapRef} className="relative ml-2 sm:ml-3">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="flex min-h-[44px] max-w-[220px] items-center gap-1.5 truncate font-mono text-[11px] uppercase tracking-[0.08em] text-inksoft hover:text-ink"
+        aria-label={email ? `Account: ${email}` : "Account: no account needed"}
+        className="flex min-h-[44px] max-w-[220px] items-center gap-1.5 rounded-[3px] font-mono text-[11px] uppercase tracking-[0.08em] text-inksoft hover:text-ink"
       >
-        {email ? (
-          <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        ) : null}
-        <span className="truncate">{label}</span>
+        <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="hidden truncate sm:inline">{label}</span>
       </button>
 
       <AnimatePresence>
@@ -74,7 +73,7 @@ export function SessionTag({
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, y: -6 }}
             transition={{ duration: 0.2, ease: EASE }}
-            className="absolute left-0 top-full z-50 mt-1 w-72 rounded-[4px] border-2 border-ink bg-card p-3 shadow-[4px_4px_0_#16130E]"
+            className="fixed inset-x-3 top-[68px] z-[70] max-h-[calc(100dvh-88px)] overflow-y-auto rounded-[4px] border-2 border-ink bg-card p-3 shadow-[4px_4px_0_#16130E] sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-1 sm:max-h-none sm:w-72 sm:overflow-visible"
           >
             <p className="font-mono text-[10px] uppercase tracking-wider text-inksoft">
               {email ? "Signed in" : "This session"}
