@@ -1,4 +1,4 @@
-# Running Placement Co-pilot (start here)
+# Running PlaceMark (start here)
 
 This is the simple, copy‑paste guide to get the whole app running on your own machine.
 It covers every "instance" you need:

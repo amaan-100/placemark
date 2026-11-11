@@ -12,7 +12,7 @@ Students and early-career job seekers navigating placement season. They use the 
 
 ## Product Purpose
 
-Placement Co-pilot is an approval-gated, multi-agent placement assistant. It reads a resume, finds relevant roles, drafts application material, and runs interview practice. Success means a student can complete the full loop in one sitting, understand what each agent did, and trust that nothing was submitted without explicit approval.
+PlaceMark is an approval-gated, multi-agent placement assistant. It reads a resume, finds relevant roles, drafts application material, and runs interview practice. Success means a student can complete the full loop in one sitting, understand what each agent did, and trust that nothing was submitted without explicit approval.
 
 ## Positioning
 
@@ -38,7 +38,7 @@ Students work in a browser with a text-based PDF resume. They search live job li
 
 ## Brand Commitments
 
-The product name is Placement Co-pilot. The voice is clear, calm, and direct: it explains what happened and what the student should do next without hype or false certainty. The approval gate and visible agent trace are product commitments, not optional decoration.
+The product name is PlaceMark. The voice is clear, calm, and direct: it explains what happened and what the student should do next without hype or false certainty. The approval gate and visible agent trace are product commitments, not optional decoration.
 
 ## Evidence on Hand
 

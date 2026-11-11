@@ -1,4 +1,4 @@
-# Placement Co-pilot — AgentX Hackathon PS-06
+# PlaceMark — AgentX Hackathon PS-06
 
 An approval-gated, multi-agent placement assistant. Upload a resume, search and
 rank jobs, draft a tailored application, approve it explicitly, and practice an
