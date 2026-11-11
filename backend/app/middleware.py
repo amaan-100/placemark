@@ -72,18 +72,24 @@ class SessionMiddleware(BaseHTTPMiddleware):
         session_id = header_id or cookie_id or str(uuid.uuid4())
         request.state.session_id = session_id
 
+        created = False
         try:
             with SessionLocal() as db:
                 session = db.get(AppSession, session_id)
                 if session is None:
                     db.add(AppSession(id=session_id))
+                    created = True
                 else:
                     session.last_seen_at = utcnow()
                 db.commit()
         except SQLAlchemyError:
             logger.exception("session_upsert_failed", extra={"session_id": session_id})
+        request.state.session_created = created
 
         response = await call_next(request)
+        if getattr(request.state, "session_deleted", False):
+            response.delete_cookie(settings.session_cookie_name)
+            return response
         response.headers[settings.session_header_name] = session_id
         response.set_cookie(
             settings.session_cookie_name,

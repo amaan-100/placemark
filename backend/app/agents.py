@@ -9,6 +9,7 @@ from .tools import (
     evaluate_answer,
     interview_question,
     next_interview_question,
+    non_aspirational_text,
     rank_jobs,
     resume_facts,
     rubric_breakdown,
@@ -17,7 +18,10 @@ from .tools import (
 RESUME_SYSTEM = (
     "You extract structured facts from resumes. Return only valid JSON. "
     "Use only information explicitly present in the resume. Never invent "
-    "employers, dates, degrees, metrics, or skills."
+    "employers, dates, degrees, metrics, or skills. Include in \"skills\" only "
+    "skills the candidate already has today. Ignore skills that appear only as "
+    "interests, goals, or things the candidate wants to learn, is learning, or "
+    "aspires to learn."
 )
 
 DOCUMENT_SYSTEM = (
@@ -51,7 +55,7 @@ def _grounded_skills(
     resume_text: str,
     deterministic: list[str],
 ) -> list[str]:
-    low = resume_text.lower()
+    low = non_aspirational_text(resume_text).lower()
     skills = list(deterministic)
     seen = set(skills)
     raw = payload.get("skills")
@@ -62,9 +66,10 @@ def _grounded_skills(
         if not isinstance(item, str):
             continue
         skill = " ".join(item.lower().split())
-        if not skill or len(skill) > 60 or skill in seen:
+        if not skill or len(skill) < 2 or len(skill) > 60 or skill in seen:
             continue
-        if skill in low:
+        pattern = re.compile(rf"(?<![a-z0-9]){re.escape(skill)}(?![a-z0-9])")
+        if pattern.search(low):
             skills.append(skill)
             seen.add(skill)
     return skills[:24]
@@ -174,7 +179,11 @@ class ResumeAgent:
             "Extract a concise candidate profile from the resume below.\n"
             "Return JSON with exactly these keys:\n"
             '- "summary": one or two sentences about the candidate\'s background.\n'
-            '- "skills": an array of tools, languages, or domains named in the resume.\n'
+            '- "skills": an array of tools, languages, or domains the candidate '
+            "already has and names in the resume.\n"
+            "Include ONLY skills the candidate currently has. Ignore skills "
+            "mentioned as interests, goals, or things they are learning or "
+            "aspiring to learn.\n"
             "Do not include contact details. Do not invent anything.\n\n"
             f"RESUME:\n{text[:12000]}"
         )

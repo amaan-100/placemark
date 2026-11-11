@@ -34,7 +34,6 @@ export function ApprovalDialog({
   const [resumeDraft, setResumeDraft] = useState('');
   const [deadline, setDeadline] = useState('');
   const [checked, setChecked] = useState(false);
-  const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
   const reduce = useReducedMotion();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -47,7 +46,6 @@ export function ApprovalDialog({
     setResumeDraft(application.resume_draft);
     setDeadline(application.deadline ?? '');
     setChecked(false);
-    setTyped('');
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [application?.id]);
@@ -102,10 +100,6 @@ export function ApprovalDialog({
     coverNote !== application.cover_note || resumeDraft !== application.resume_draft;
   const deadlineDirty = deadline !== savedDeadline;
   const dirty = draftsDirty || deadlineDirty;
-  const ready = checked && typed.trim().toLowerCase() === 'approve';
-  // A deadline-only edit on an approved draft records no approval decision, so it
-  // does not need the typed confirmation.
-  const needsConfirmation = !(isApproved && !draftsDirty && deadlineDirty);
 
   const confirmLabel = isApproved
     ? draftsDirty
@@ -340,21 +334,11 @@ export function ApprovalDialog({
                     my resume.
                   </span>
                 </label>
-                <div>
-                  <label htmlFor="type-approve" className="text-sm font-medium">
-                    Type <span className="font-mono font-semibold text-accentdark">approve</span> to
-                    confirm
-                  </label>
-                  <input
-                    id="type-approve"
-                    type="text"
-                    value={typed}
-                    onChange={(event) => setTyped(event.target.value)}
-                    autoComplete="off"
-                    placeholder="approve"
-                    className="mt-2 min-h-[44px] w-full rounded-[3px] border border-linedark bg-card px-3 font-mono text-sm placeholder:text-inksoft/50 focus:border-accent"
-                  />
-                </div>
+                {!dirty ? (
+                  <p className="text-[13px] leading-relaxed text-inksoft">
+                    Nothing edited. Approving records your decision on the current draft.
+                  </p>
+                ) : null}
               </div>
 
               {error ? (
@@ -366,13 +350,7 @@ export function ApprovalDialog({
 
             <div className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-line bg-card px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
               <p className="font-mono text-[11px] uppercase tracking-wider text-inksoft">
-                {!dirty
-                  ? 'No changes yet'
-                  : needsConfirmation
-                    ? ready
-                      ? 'Ready — approval records only'
-                      : 'Both checks required'
-                    : 'Deadline only — approval kept'}
+                {!dirty ? 'Ready to approve' : 'Review, then record your decision'}
               </p>
               <div className="flex flex-col-reverse gap-3 sm:flex-row">
                 <Btn variant="ghost" onClick={onClose} disabled={busy}>
@@ -381,10 +359,7 @@ export function ApprovalDialog({
                 <Btn variant="ghost" onClick={handleSave} disabled={busy || !dirty}>
                   {saving ? 'Saving…' : 'Save changes'}
                 </Btn>
-                <Btn
-                  onClick={handleConfirm}
-                  disabled={!dirty || busy || (needsConfirmation && !ready)}
-                >
+                <Btn onClick={handleConfirm} disabled={busy || !checked}>
                   {approving ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : null}

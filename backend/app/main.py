@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 
@@ -6,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .db import engine, run_migrations
+from .db import SessionLocal, engine, run_migrations
 from .errors import (
     AppError,
     app_error_handler,
@@ -30,18 +32,45 @@ from .routers import (
     sessions,
     traces,
 )
+from .services.sessions import purge_configured
 
 logger = logging.getLogger("placement")
+
+SESSION_PURGE_INTERVAL_SECONDS = 6 * 60 * 60
+
+
+def _purge_sessions_once() -> int:
+    with SessionLocal() as db:
+        return purge_configured(db)
+
+
+async def _session_purge_loop() -> None:
+    while True:
+        await asyncio.sleep(SESSION_PURGE_INTERVAL_SECONDS)
+        try:
+            count = _purge_sessions_once()
+            logger.info("sessions_purged", extra={"count": count})
+        except Exception:
+            logger.exception("sessions_purge_failed")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     configure_logging(settings.log_level)
     run_migrations()
+    try:
+        count = _purge_sessions_once()
+        logger.info("sessions_purged", extra={"count": count})
+    except Exception:
+        logger.exception("sessions_purge_failed")
     logger.info("startup", extra={"environment": settings.environment})
+    purge_task = asyncio.create_task(_session_purge_loop())
     try:
         yield
     finally:
+        purge_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await purge_task
         engine.dispose()
         logger.info("shutdown")
 

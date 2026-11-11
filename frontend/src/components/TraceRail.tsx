@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import type { Trace } from '../api/types';
-import { AGENT_META, toAgentId, traceLabel, traceMode, traceTime } from '../lib/agents';
-import { summarizeTrace } from '../utils';
+import { AGENT_META, toAgentId, traceLabel, traceTime } from '../lib/agents';
+import { formatLatency, summarizeTrace } from '../utils';
 import { cn } from '../utils/cn';
 import { EASE, Mono, Skeleton } from './ui';
 
@@ -76,7 +76,6 @@ export function TraceRail({
               {ordered.map((trace, index) => {
                 const agent = toAgentId(trace.agent);
                 const meta = AGENT_META[agent];
-                const mode = traceMode(trace);
                 const isLast = index === ordered.length - 1;
                 return (
                   <motion.li
@@ -113,19 +112,9 @@ export function TraceRail({
                     <p className="mt-0.5 text-xs leading-relaxed text-inksoft">
                       {summarizeTrace(trace.output ?? {}, trace.action)}
                     </p>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <span className="font-mono text-[10px] text-inksoft">{trace.latency_ms} ms</span>
-                      <span
-                        className={cn(
-                          'rounded-full px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider',
-                          mode === 'ai' && 'bg-mossbg text-moss',
-                          mode === 'fallback' && 'bg-amberbg text-amber',
-                          mode === 'system' && 'bg-paper2 text-inksoft',
-                        )}
-                      >
-                        {mode === 'ai' ? 'AI' : mode === 'fallback' ? 'Fallback' : 'System'}
-                      </span>
-                    </div>
+                    <p className="mt-1.5 font-mono text-[10px] text-inksoft">
+                      {formatLatency(trace.latency_ms)}
+                    </p>
                   </motion.li>
                 );
               })}
@@ -135,8 +124,8 @@ export function TraceRail({
       </div>
       <div className="border-t border-line px-4 py-3">
         <p className="text-[11px] leading-relaxed text-inksoft">
-          Every entry is a real step the agents took. Latency is measured per action. Nothing here
-          is sent to an employer.
+          Every entry is a real step the agents took. Each step is timed. Nothing here is sent to
+          an employer.
         </p>
       </div>
     </aside>

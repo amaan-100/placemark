@@ -9,6 +9,20 @@ export function formatDate(value: string): string {
   }).format(date);
 }
 
+export function formatLatency(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return '—';
+  }
+  const seconds = ms / 1000;
+  if (seconds < 0.1) {
+    return '0.1s';
+  }
+  if (seconds < 10) {
+    return `${seconds.toFixed(1)}s`;
+  }
+  return `${Math.round(seconds)}s`;
+}
+
 export function summarizeOutput(output: Record<string, unknown>): string {
   const entries = Object.entries(output)
     .filter(([, value]) => value !== null && typeof value !== 'object')

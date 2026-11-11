@@ -1,7 +1,6 @@
 import type { Trace } from '../api/types';
 
 export type AgentId = 'resume' | 'job' | 'document' | 'interview' | 'system';
-export type TraceMode = 'ai' | 'fallback' | 'system';
 
 export const AGENT_META: Record<AgentId, { name: string; short: string; color: string }> = {
   resume: { name: 'Resume Agent', short: 'RES', color: '#2F5D3A' },
@@ -26,18 +25,6 @@ const ACTION_LABELS: Record<string, string> = {
 
 export function traceLabel(trace: Trace): string {
   return ACTION_LABELS[trace.action] ?? trace.action.replaceAll('_', ' ');
-}
-
-export function traceMode(trace: Trace): TraceMode {
-  const output = trace.output ?? {};
-  const llm = output.llm as { used?: boolean } | undefined;
-  if (llm && typeof llm.used === 'boolean') {
-    return llm.used ? 'ai' : 'fallback';
-  }
-  if (output.fallback === true) {
-    return 'fallback';
-  }
-  return 'system';
 }
 
 export function traceTime(trace: Trace): string {

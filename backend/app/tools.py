@@ -100,6 +100,39 @@ _SKILL_PATTERNS = [
     for skill in SKILL_VOCABULARY
 ]
 
+ASPIRATIONAL_MARKERS = (
+    "interested in",
+    "aspiring",
+    "aiming to",
+    "would like to",
+    "want to",
+    "hope to",
+    "plan to",
+    "seeking",
+    "looking for",
+    "career goal",
+    "objective:",
+    "learning",
+    "currently learning",
+    "eager to",
+    "keen to",
+    "strive to",
+)
+
+_LEARNING_GUARD = r"(?<!machine )(?<!deep )(?<!reinforcement )(?<!active )"
+
+
+def _aspirational_pattern(marker: str) -> re.Pattern[str]:
+    pattern = rf"(?<![a-z0-9]){re.escape(marker)}(?![a-z0-9])"
+    if marker == "learning":
+        pattern = rf"{_LEARNING_GUARD}{pattern}"
+    return re.compile(pattern)
+
+
+_ASPIRATIONAL_PATTERNS = [_aspirational_pattern(marker) for marker in ASPIRATIONAL_MARKERS]
+
+_CLAUSE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+
 TAG_RE = re.compile(r"<[^>]+>")
 SPACE_RE = re.compile(r"\s+")
 
@@ -108,8 +141,23 @@ def html_to_text(value: str) -> str:
     return SPACE_RE.sub(" ", html.unescape(TAG_RE.sub(" ", value or ""))).strip()
 
 
+def _is_aspirational(clause: str) -> bool:
+    low = clause.lower()
+    return any(pattern.search(low) for pattern in _ASPIRATIONAL_PATTERNS)
+
+
+def non_aspirational_text(text: str) -> str:
+    kept: list[str] = []
+    for line in (text or "").splitlines():
+        clauses = [clause for clause in _CLAUSE_SPLIT.split(line) if not _is_aspirational(clause)]
+        cleaned = " ".join(clause.strip() for clause in clauses if clause.strip())
+        if cleaned:
+            kept.append(cleaned)
+    return "\n".join(kept)
+
+
 def extract_skills(text: str) -> list[str]:
-    low = (text or "").lower()
+    low = non_aspirational_text(text).lower()
     found: list[str] = []
     for skill, pattern in _SKILL_PATTERNS:
         if pattern.search(low):

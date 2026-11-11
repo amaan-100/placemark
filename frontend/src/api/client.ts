@@ -77,6 +77,10 @@ export function getSessionId(): string {
   return generated;
 }
 
+export function clearSessionId(): void {
+  localStorage.removeItem(SESSION_KEY);
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
@@ -190,6 +194,7 @@ async function request<T>(path: string, init: RequestInit = {}, retries = 1): Pr
 export const api = {
   getHealth: () => request<Health>('/health', {}, 1),
   getSession: () => request<SessionInfo>('/session', {}, 0),
+  deleteSession: () => request<{ deleted: number }>('/session', { method: 'DELETE' }, 0),
   getLatestResume: () => request<ResumeInfo>('/resume/latest'),
   uploadResume: (file: File) => {
     const body = new FormData();

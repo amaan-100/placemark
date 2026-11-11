@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useDragControls, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, Check, Clock3, GripVertical, Loader2, MessageSquareText, X } from 'lucide-react';
-import { ApiError, api, getSessionId } from '../api/client';
+import { ApiError, api, clearSessionId, getSessionId } from '../api/client';
 import type {
   Application,
   ApplicationUpdate,
@@ -23,6 +23,7 @@ import { STEPS, type Step } from '../lib/steps';
 import { cn } from '../utils/cn';
 import { ApprovalDialog } from './ApprovalDialog';
 import { ConfirmDialog } from './ConfirmDialog';
+import { SessionTag } from './SessionTag';
 import { StepApprove } from './steps/StepApprove';
 import { StepMatches } from './steps/StepMatches';
 import { StepPractice } from './steps/StepPractice';
@@ -117,6 +118,8 @@ export function Workspace({ onExit }: { onExit: () => void }) {
   const [traceOpen, setTraceOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Application | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [confirmSessionDelete, setConfirmSessionDelete] = useState(false);
+  const [deletingSession, setDeletingSession] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [llmFailed, setLlmFailed] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
@@ -726,6 +729,21 @@ export function Workspace({ onExit }: { onExit: () => void }) {
     onExit();
   };
 
+  const deleteSession = async () => {
+    setDeletingSession(true);
+    try {
+      await api.deleteSession();
+    } catch {
+      // Even if the request fails, the local session is unrecoverable after
+      // clearing it, so surface nothing and let the user retry from a fresh start.
+    } finally {
+      clearSessionId();
+      setDeletingSession(false);
+      setConfirmSessionDelete(false);
+      onExit();
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <a
@@ -744,11 +762,9 @@ export function Workspace({ onExit }: { onExit: () => void }) {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <div className="leading-none">
+            <div className="flex items-center gap-3">
               <p className="font-display text-lg font-bold tracking-tight">Placemark</p>
-              <Mono className="mt-0.5 text-inksoft">
-                {sessionId.slice(0, 8).toUpperCase()} · Anonymous
-              </Mono>
+              <SessionTag sessionId={sessionId} onRequestDelete={() => setConfirmSessionDelete(true)} />
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
@@ -1145,6 +1161,22 @@ export function Workspace({ onExit }: { onExit: () => void }) {
         onCancel={() => {
           if (!confirmBusy) {
             setPendingDelete(null);
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmSessionDelete}
+        title="Delete this session?"
+        description="This removes your resume, drafts, applications, interviews, and activity history from our database. This cannot be undone."
+        confirmLabel="Delete everything"
+        busy={deletingSession}
+        onConfirm={() => {
+          void deleteSession();
+        }}
+        onCancel={() => {
+          if (!deletingSession) {
+            setConfirmSessionDelete(false);
           }
         }}
       />

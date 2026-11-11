@@ -238,6 +238,10 @@ class SessionResponse(BaseModel):
     created_at: datetime
 
 
+class SessionDeleteResponse(BaseModel):
+    deleted: int
+
+
 class HealthResponse(BaseModel):
     status: str
     agent: str

@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     session_cookie_name: str = "pc_session"
     session_header_name: str = "X-Session-Id"
     session_max_age_seconds: int = 60 * 60 * 24 * 30
+    session_retention_days: int = 30
 
     max_upload_bytes: int = 8 * 1024 * 1024
     max_resume_chars: int = 200_000
