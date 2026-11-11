@@ -11,7 +11,7 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
               <Zap className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="leading-none">
-              <p className="font-display text-lg font-bold tracking-tight">Placement Co-pilot</p>
+              <p className="font-display text-lg font-bold tracking-tight">PlaceMark</p>
               <Mono className="mt-0.5 text-inksoft">Anonymous session</Mono>
             </div>
           </div>
@@ -266,7 +266,7 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
-          <Mono className="text-inksoft">Placement Co-pilot — a placement-season instrument</Mono>
+          <Mono className="text-inksoft">PlaceMark — a placement-season instrument</Mono>
           <Mono className="text-inksoft">Clear, calm, direct. No hype.</Mono>
         </div>
       </footer>
